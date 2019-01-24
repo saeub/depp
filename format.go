@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"sort"
 	"strconv"
@@ -20,16 +21,16 @@ func sentencesFromFile(filename string, readFunc func(*bufio.Reader) sentence) (
 }
 
 type conllSentence struct {
-	fields [][]string
+	rows [][]string
 }
 
 func readConllSentence(reader *bufio.Reader) sentence {
-	fields := make([][]string, 0)
+	rows := make([][]string, 0)
 	for true {
 		line, err := reader.ReadString('\n')
 		line = strings.TrimSpace(line)
 		if len(line) == 0 {
-			if len(fields) == 0 {
+			if len(rows) == 0 {
 				if err != nil {
 					// end of file
 					break
@@ -40,19 +41,23 @@ func readConllSentence(reader *bufio.Reader) sentence {
 			// end of sentence
 			break
 		}
-		fields = append(fields, strings.Split(line, "\t"))
+		row := strings.Split(line, "\t")
+		if len(row) < 10 {
+			log.Panicln("invalid line:", line)
+		}
+		rows = append(rows, row)
 	}
-	if len(fields) == 0 {
+	if len(rows) == 0 {
 		// end of file, no more sentences to return
 		return nil
 	}
-	return &conllSentence{fields}
+	return &conllSentence{rows}
 }
 
 func (sent *conllSentence) tokens() []token {
-	toks := make([]token, len(sent.fields))
+	toks := make([]token, len(sent.rows))
 	// TODO check for inconsistent IDs?
-	for i, f := range sent.fields {
+	for i, f := range sent.rows {
 		toks[i] = token{f[0], f[1], f[2]}
 	}
 	return toks
@@ -63,17 +68,17 @@ func (sent *conllSentence) dependenciesAbove() []dependency {
 }
 
 func (sent *conllSentence) dependenciesBelow() []dependency {
-	deps := make([]dependency, len(sent.fields))
-	for i, f := range sent.fields {
+	deps := make([]dependency, len(sent.rows))
+	for i, f := range sent.rows {
 		headID, _ := strconv.Atoi(f[6])
 		headIndex := headID - 1 // convert CoNLL ID to slice index
-		if headIndex < 0 || headIndex >= len(sent.fields) {
+		if headIndex < 0 || headIndex >= len(sent.rows) {
 			// invalid ID; set current token as head
 			headIndex = i
 		}
 		dependentID, _ := strconv.Atoi(f[0])
 		dependentIndex := dependentID - 1 // convert CoNLL ID to slice index
-		if dependentIndex < 0 || dependentIndex > len(sent.fields) {
+		if dependentIndex < 0 || dependentIndex > len(sent.rows) {
 			// invalid ID; set current token as dependent
 			dependentIndex = i
 		}
@@ -87,7 +92,7 @@ func (sent *conllSentence) dependenciesBelow() []dependency {
 }
 
 func (sent *conllSentence) output(writer io.Writer) {
-	for _, f := range sent.fields {
+	for _, f := range sent.rows {
 		fmt.Fprint(writer, strings.Join(f, "\t"))
 	}
 }
