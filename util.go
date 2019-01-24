@@ -32,11 +32,9 @@ func limit(value, min, max int) int {
 }
 
 func longestLen(lines []string) int {
-	max := 0
+	maxlen := 0
 	for _, l := range lines {
-		if len(l) > max {
-			max = len(l)
-		}
+		maxlen = max(maxlen, len([]rune(l)))
 	}
-	return max
+	return maxlen
 }

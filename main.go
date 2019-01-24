@@ -10,7 +10,7 @@ import (
 
 var (
 	sents      []sentence
-	disp       display
+	disp       *display
 	dispSentID int
 	tokenSep   string
 )

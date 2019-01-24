@@ -15,64 +15,64 @@ type display struct {
 	resetScroll    bool // reset scroll offset on next layout()
 }
 
-func newDisplay(g *gocui.Gui, viewname string, tokenSep string) display {
+func newDisplay(g *gocui.Gui, viewname string, tokenSep string) (d *display) {
 	if err := g.SetKeybinding(viewname, gocui.KeyArrowLeft, gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, -5, 0)
+			scrollDisplay(d, v, -5, 0)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding(viewname, 'h', gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, -5, 0)
+			scrollDisplay(d, v, -5, 0)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding(viewname, gocui.KeyArrowRight, gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, 5, 0)
+			scrollDisplay(d, v, 5, 0)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding(viewname, 'l', gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, 5, 0)
+			scrollDisplay(d, v, 5, 0)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding(viewname, gocui.KeyArrowUp, gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, 0, -1)
+			scrollDisplay(d, v, 0, -1)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding(viewname, 'k', gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, 0, -1)
+			scrollDisplay(d, v, 0, -1)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding(viewname, gocui.KeyArrowDown, gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, 0, 1)
+			scrollDisplay(d, v, 0, 1)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding(viewname, 'j', gocui.ModNone,
 		func(_ *gocui.Gui, v *gocui.View) error {
-			scrollView(v, 0, 1)
+			scrollDisplay(d, v, 0, 1)
 			return nil
 		}); err != nil {
 		log.Panicln(err)
 	}
-	return display{
+	return &display{
 		tokenSeparator: tokenSep,
 	}
 }
@@ -103,11 +103,15 @@ func (d *display) drawSentence(sent sentence) {
 		sentLine.WriteString(d.tokenSeparator)
 		idLine.WriteString(d.tokenSeparator)
 	}
+	depbufAbove := drawDependencies(sent.dependenciesAbove(), idPositions, true)
+
+	for i := len(depbufAbove) - 1; i >= 0; i-- {
+		d.buffer = append(d.buffer, depbufAbove[i])
+	}
 	d.buffer = append(d.buffer, sentLine.String(), idLine.String())
-	depbuf := drawDependencies(sent.dependenciesBelow(), idPositions, false)
-	// TODO dependencies above
-	for _, l := range depbuf {
-		d.buffer = append(d.buffer, l)
+	depbufBelow := drawDependencies(sent.dependenciesBelow(), idPositions, false)
+	for i := 0; i < len(depbufBelow); i++ {
+		d.buffer = append(d.buffer, depbufBelow[i])
 	}
 	d.resetScroll = true
 }
@@ -122,12 +126,22 @@ func drawDependencies(deps []dependency, idPos []int, above bool) []string {
 		var leftMark, rightMark rune
 		if d.headIndex < d.dependentIndex {
 			// head left of dependent
-			leftMark = '└'
-			rightMark = '╜'
+			if above {
+				leftMark = '┌'
+				rightMark = '╖'
+			} else {
+				leftMark = '└'
+				rightMark = '╜'
+			}
 		} else if d.headIndex > d.dependentIndex {
 			// head right of dependent
-			leftMark = '╙'
-			rightMark = '┘'
+			if above {
+				leftMark = '╓'
+				rightMark = '┐'
+			} else {
+				leftMark = '╙'
+				rightMark = '┘'
+			}
 		} else {
 			// head == dependent
 			leftMark = ' '
@@ -189,19 +203,24 @@ func drawDependencies(deps []dependency, idPos []int, above bool) []string {
 			}
 		}
 	}
-	strbuf := make([]string, len(deps))
+	strbuf := make([]string, len(buf))
 	for i, l := range buf {
 		strbuf[i] = string(l)
 	}
 	return strbuf
 }
 
-func scrollView(v *gocui.View, x int, y int) {
+func scrollDisplay(d *display, v *gocui.View, x int, y int) {
+	viewWidth, viewHeight := v.Size()
+	bufWidth := longestLen(d.buffer)
+	bufHeight := len(d.buffer)
 	oldX, oldY := v.Origin()
-	v.SetOrigin(oldX+x, oldY+y)
+	maxX := max(0, bufWidth-viewWidth-3)
+	maxY := max(0, bufHeight-viewHeight)
+	v.SetOrigin(limit(oldX+x, 0, maxX), limit(oldY+y, 0, maxY))
 }
 
-func resetScrollView(v *gocui.View) {
+func unscrollDisplay(d *display, v *gocui.View) {
 	v.SetOrigin(0, 0)
 }
 
@@ -215,7 +234,7 @@ func (d *display) layout(v *gocui.View) error {
 		fmt.Fprintln(v, l)
 	}
 	if d.resetScroll {
-		resetScrollView(v)
+		unscrollDisplay(d, v)
 		d.resetScroll = false
 	}
 	return nil
