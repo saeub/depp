@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	sent "./sent"
 	"github.com/jroimartin/gocui"
 )
 
@@ -81,19 +82,20 @@ func (d *display) drawMessage(msg string) {
 	d.buffer = []string{msg}
 }
 
-func (d *display) drawSentence(sent sentence) {
+func (d *display) drawSentence(sent sent.Sentence) {
 	d.buffer = make([]string, 0)
 	var sentLine strings.Builder
 	var idLine strings.Builder
-	idPositions := make([]int, len(sent.tokens()))
-	for i, t := range sent.tokens() {
-		tokenLen := len([]rune(t.text))
+	toks := sent.Tokens()
+	idPositions := make([]int, len(toks))
+	for i, t := range toks {
+		tokenLen := len([]rune(t.Text))
 		idString := strconv.Itoa(i)
 		idLen := len(idString)
 		spacing := max(tokenLen, idLen)
 		idOffset := (spacing - idLen) / 2
 
-		sentLine.WriteString(t.text)
+		sentLine.WriteString(t.Text)
 		sentLine.WriteString(strings.Repeat(" ", spacing-tokenLen))
 		idLine.WriteString(strings.Repeat(" ", idOffset))
 		idPositions[i] = len([]rune(idLine.String()))
@@ -103,28 +105,28 @@ func (d *display) drawSentence(sent sentence) {
 		sentLine.WriteString(d.tokenSeparator)
 		idLine.WriteString(d.tokenSeparator)
 	}
-	depbufAbove := drawDependencies(sent.dependenciesAbove(), idPositions, true)
+	depbufAbove := drawDependencies(sent.DependenciesAbove(), idPositions, true)
 
 	for i := len(depbufAbove) - 1; i >= 0; i-- {
 		d.buffer = append(d.buffer, depbufAbove[i])
 	}
 	d.buffer = append(d.buffer, sentLine.String(), idLine.String())
-	depbufBelow := drawDependencies(sent.dependenciesBelow(), idPositions, false)
+	depbufBelow := drawDependencies(sent.DependenciesBelow(), idPositions, false)
 	for i := 0; i < len(depbufBelow); i++ {
 		d.buffer = append(d.buffer, depbufBelow[i])
 	}
 	d.resetScroll = true
 }
 
-func drawDependencies(deps []dependency, idPos []int, above bool) []string {
+func drawDependencies(deps []sent.Dependency, idPos []int, above bool) []string {
 	buf := make([][]rune, 0)
 	for _, d := range deps {
-		head := idPos[d.headIndex]
-		dependent := idPos[d.dependentIndex]
+		head := idPos[d.HeadIndex]
+		dependent := idPos[d.DependentIndex]
 		left := min(head, dependent)
 		right := max(head, dependent)
 		var leftMark, rightMark rune
-		if d.headIndex < d.dependentIndex {
+		if d.HeadIndex < d.DependentIndex {
 			// head left of dependent
 			if above {
 				leftMark = '┌'
@@ -133,7 +135,7 @@ func drawDependencies(deps []dependency, idPos []int, above bool) []string {
 				leftMark = '└'
 				rightMark = '╜'
 			}
-		} else if d.headIndex > d.dependentIndex {
+		} else if d.HeadIndex > d.DependentIndex {
 			// head right of dependent
 			if above {
 				leftMark = '╓'
@@ -180,7 +182,7 @@ func drawDependencies(deps []dependency, idPos []int, above bool) []string {
 		// draw horizontal line and label
 		buf[deplineY][left] = leftMark
 		buf[deplineY][right] = rightMark
-		labelRunes := []rune(d.name)
+		labelRunes := []rune(d.Name)
 		labelLen := len(labelRunes)
 		labelOffset := (right - left - labelLen) / 2
 		labelY := deplineY

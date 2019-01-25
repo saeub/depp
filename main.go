@@ -5,11 +5,12 @@ import (
 	"log"
 	"os"
 
+	sent "./sent"
 	"github.com/jroimartin/gocui"
 )
 
 var (
-	sents      []sentence
+	sents      []sent.Sentence
 	disp       *display
 	dispSentID int
 	tokenSep   string
@@ -20,7 +21,7 @@ func main() {
 		fmt.Printf("Usage: %v FILE\n", os.Args[0])
 		os.Exit(1)
 	}
-	sents = sentencesFromFile(os.Args[1], readConllSentence)
+	sents = sent.SentencesFromFile(os.Args[1], sent.ReadConllSentence)
 	tokenSep = "   "
 
 	g, err := gocui.NewGui(gocui.OutputNormal)

@@ -1,30 +1,19 @@
-package main
+package sent
 
 import (
 	"bufio"
 	"fmt"
 	"io"
 	"log"
-	"os"
-	"sort"
 	"strconv"
 	"strings"
 )
-
-func sentencesFromFile(filename string, readFunc func(*bufio.Reader) sentence) (sents []sentence) {
-	f, _ := os.Open(filename)
-	r := bufio.NewReader(f)
-	for sent := readFunc(r); sent != nil; sent = readFunc(r) {
-		sents = append(sents, sent)
-	}
-	return sents
-}
 
 type conllSentence struct {
 	rows [][]string
 }
 
-func readConllSentence(reader *bufio.Reader) sentence {
+func ReadConllSentence(reader *bufio.Reader) Sentence {
 	rows := make([][]string, 0)
 	for true {
 		line, err := reader.ReadString('\n')
@@ -54,21 +43,21 @@ func readConllSentence(reader *bufio.Reader) sentence {
 	return &conllSentence{rows}
 }
 
-func (sent *conllSentence) tokens() []token {
-	toks := make([]token, len(sent.rows))
+func (sent *conllSentence) Tokens() []Token {
+	toks := make([]Token, len(sent.rows))
 	// TODO check for inconsistent IDs?
 	for i, f := range sent.rows {
-		toks[i] = token{f[0], f[1], f[2]}
+		toks[i] = Token{f[0], f[1], f[2]}
 	}
 	return toks
 }
 
-func (sent *conllSentence) dependenciesAbove() []dependency {
+func (sent *conllSentence) DependenciesAbove() []Dependency {
 	return nil
 }
 
-func (sent *conllSentence) dependenciesBelow() []dependency {
-	deps := make([]dependency, len(sent.rows))
+func (sent *conllSentence) DependenciesBelow() []Dependency {
+	deps := make([]Dependency, len(sent.rows))
 	for i, f := range sent.rows {
 		headID, _ := strconv.Atoi(f[6])
 		headIndex := headID - 1 // convert CoNLL ID to slice index
@@ -82,16 +71,14 @@ func (sent *conllSentence) dependenciesBelow() []dependency {
 			// invalid ID; set current token as dependent
 			dependentIndex = i
 		}
-		deps[i] = dependency{f[7], headIndex, dependentIndex}
+		deps[i] = Dependency{f[7], headIndex, dependentIndex}
 	}
 	// display shorter dependencies closer to the sentence
-	sort.Slice(deps, func(i, j int) bool {
-		return abs(deps[i].dependentIndex-deps[i].headIndex) < abs(deps[j].dependentIndex-deps[j].headIndex)
-	})
+	sortDependencies(deps)
 	return deps
 }
 
-func (sent *conllSentence) output(writer io.Writer) {
+func (sent *conllSentence) Output(writer io.Writer) {
 	for _, f := range sent.rows {
 		fmt.Fprint(writer, strings.Join(f, "\t"))
 	}
