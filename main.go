@@ -25,6 +25,7 @@ func main() {
 	tokenSep = "   "
 
 	g, err := gocui.NewGui(gocui.OutputNormal)
+	g.InputEsc = true
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -48,6 +49,19 @@ func main() {
 		log.Panicln(err)
 	}
 
+	if err := g.SetKeybinding("display", 'a', gocui.ModNone, func(g *gocui.Gui, _ *gocui.View) error {
+		newCommand(g, "command", "display", "Add dependency", `([A-Za-z]+)(\d+),(\d+)`, func(match []string) {
+			if match != nil {
+				// command not cancelled
+				sents[dispSentID].AddDependency(match[1], match[2], match[3])
+				disp.drawSentence(sents[dispSentID], false)
+			}
+		})
+		return nil
+	}); err != nil {
+		log.Panicln(err)
+	}
+
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
@@ -60,7 +74,7 @@ func layout(g *gocui.Gui) error {
 	if err != nil {
 		if err == gocui.ErrUnknownView {
 			disp = newDisplay(g, "display", tokenSep)
-			disp.drawSentence(sents[dispSentID])
+			disp.drawSentence(sents[dispSentID], true)
 			g.SetCurrentView("display")
 		} else {
 			return err
@@ -68,13 +82,13 @@ func layout(g *gocui.Gui) error {
 	}
 	disp.layout(v)
 
-	v, err = g.SetView("cmd", 0, height-3, width-1, height-1)
+	v, err = g.SetView("command", 0, height-3, width-1, height-1)
 	if err != nil {
 		if err == gocui.ErrUnknownView {
 			// v.Frame = false
 			// v.Editor = gocui.DefaultEditor
 			v.Editable = true
-			g.SetViewOnBottom("cmd")
+			g.SetViewOnBottom("command")
 		} else {
 			return err
 		}
@@ -90,7 +104,7 @@ func navigateSentence(offset int) {
 	if dispSentID >= len(sents) {
 		dispSentID = len(sents) - 1
 	}
-	disp.drawSentence(sents[dispSentID])
+	disp.drawSentence(sents[dispSentID], true)
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {

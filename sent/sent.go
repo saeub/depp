@@ -23,6 +23,7 @@ type Sentence interface {
 	Tokens() []Token
 	DependenciesAbove() []Dependency
 	DependenciesBelow() []Dependency
+	AddDependency(string, string, string) error
 	Output(io.Writer)
 }
 
@@ -45,6 +46,13 @@ func sortDependencies(deps []Dependency) {
 		if dist2 < 0 {
 			dist2 = -dist2
 		}
-		return dist1 < dist2
+		if dist1 < dist2 {
+			// primary sort by distance
+			return true
+		} else if dist1 == dist2 {
+			// secondary sort by dependent index
+			return deps[i].DependentIndex < deps[j].DependentIndex
+		}
+		return false
 	})
 }

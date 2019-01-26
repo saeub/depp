@@ -78,6 +78,17 @@ func (sent *conllSentence) DependenciesBelow() []Dependency {
 	return deps
 }
 
+func (sent *conllSentence) AddDependency(name, headID, depID string) error {
+	// TODO check for invalid ID
+	for _, r := range sent.rows {
+		if r[0] == depID {
+			r[7] = name
+			r[6] = headID
+		}
+	}
+	return nil
+}
+
 func (sent *conllSentence) Output(writer io.Writer) {
 	for _, f := range sent.rows {
 		fmt.Fprint(writer, strings.Join(f, "\t"))

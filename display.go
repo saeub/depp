@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 
 	sent "./sent"
@@ -82,7 +81,7 @@ func (d *display) drawMessage(msg string) {
 	d.buffer = []string{msg}
 }
 
-func (d *display) drawSentence(sent sent.Sentence) {
+func (d *display) drawSentence(sent sent.Sentence, resetScroll bool) {
 	d.buffer = make([]string, 0)
 	var sentLine strings.Builder
 	var idLine strings.Builder
@@ -90,7 +89,7 @@ func (d *display) drawSentence(sent sent.Sentence) {
 	idPositions := make([]int, len(toks))
 	for i, t := range toks {
 		tokenLen := len([]rune(t.Text))
-		idString := strconv.Itoa(i)
+		idString := t.ID
 		idLen := len(idString)
 		spacing := max(tokenLen, idLen)
 		idOffset := (spacing - idLen) / 2
@@ -115,7 +114,7 @@ func (d *display) drawSentence(sent sent.Sentence) {
 	for i := 0; i < len(depbufBelow); i++ {
 		d.buffer = append(d.buffer, depbufBelow[i])
 	}
-	d.resetScroll = true
+	d.resetScroll = resetScroll
 }
 
 func drawDependencies(deps []sent.Dependency, idPos []int, above bool) []string {
