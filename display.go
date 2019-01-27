@@ -188,7 +188,7 @@ func drawDependencies(deps []sent.Dependency, idPos []int, above bool) []string 
 		if head == dependent {
 			// dodge buffer edge
 			left = max(left, -labelOffset)
-			left = min(left, len(buf[labelY])+labelOffset)
+			left = min(left, len(buf[labelY])-(labelLen+labelOffset))
 			for lx := left + labelOffset; lx < left+labelOffset+labelLen; lx++ {
 				buf[labelY][lx] = labelRunes[lx-left-labelOffset]
 			}
