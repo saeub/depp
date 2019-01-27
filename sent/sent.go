@@ -29,6 +29,7 @@ type Sentence interface {
 
 func SentencesFromFile(filename string, readFunc func(*bufio.Reader) Sentence) (sents []Sentence) {
 	f, _ := os.Open(filename)
+	defer f.Close()
 	r := bufio.NewReader(f)
 	for sent := readFunc(r); sent != nil; sent = readFunc(r) {
 		sents = append(sents, sent)

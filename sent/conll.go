@@ -80,6 +80,11 @@ func (sent *conllSentence) DependenciesBelow() []Dependency {
 
 func (sent *conllSentence) AddDependency(name, headID, depID string) error {
 	// TODO check for invalid ID
+	if depID == "" {
+		// root dependency
+		depID = headID
+		headID = "0"
+	}
 	for _, r := range sent.rows {
 		if r[0] == depID {
 			r[7] = name

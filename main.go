@@ -50,7 +50,7 @@ func main() {
 	}
 
 	if err := g.SetKeybinding("display", 'a', gocui.ModNone, func(g *gocui.Gui, _ *gocui.View) error {
-		newCommand(g, "command", "display", "Add dependency", `([A-Za-z]+)(\d+),(\d+)`, func(match []string) {
+		newCommand(g, "command", "display", "Add dependency", `([A-Za-z]+)(\d+)(?:,(\d+))?`, func(match []string) {
 			if match != nil {
 				// command not cancelled
 				sents[dispSentID].AddDependency(match[1], match[2], match[3])
