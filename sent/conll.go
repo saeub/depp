@@ -79,7 +79,7 @@ func (sent *conllSentence) DependenciesBelow() []Dependency {
 }
 
 func (sent *conllSentence) AddDependency(name, headID, depID string) error {
-	// TODO check for invalid ID
+	// TODO check for invalid head ID
 	if depID == "" {
 		// root dependency
 		depID = headID
@@ -89,9 +89,22 @@ func (sent *conllSentence) AddDependency(name, headID, depID string) error {
 		if r[0] == depID {
 			r[7] = name
 			r[6] = headID
+			return nil
 		}
 	}
-	return nil
+	return fmt.Errorf("no token with ID %s", depID)
+}
+
+func (sent *conllSentence) RemoveDependency(dep *Dependency) error {
+	depID := strconv.Itoa(dep.DependentIndex + 1)
+	for _, r := range sent.rows {
+		if r[0] == depID {
+			r[7] = ""
+			r[6] = "0"
+			return nil
+		}
+	}
+	return fmt.Errorf("no token with ID %s", depID)
 }
 
 func (sent *conllSentence) Output(writer io.Writer) {

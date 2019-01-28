@@ -23,7 +23,8 @@ type Sentence interface {
 	Tokens() []Token
 	DependenciesAbove() []Dependency
 	DependenciesBelow() []Dependency
-	AddDependency(string, string, string) error
+	AddDependency(name, headID, depID string) error
+	RemoveDependency(dep *Dependency) error
 	Output(io.Writer)
 }
 

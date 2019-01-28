@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"sort"
 
 	sent "./sent"
@@ -19,12 +18,15 @@ type drawable interface {
 	draw(offsetX, offsetY int, selected bool)
 	occupiesRect(x, y, width, height int) bool
 	zIndex() int
+	selectable() bool
+	Data() interface{}
 }
 
 type label struct {
 	x, y   int
 	text   string
 	fg, bg termbox.Attribute
+	data   interface{}
 }
 
 type bracket struct {
@@ -32,7 +34,6 @@ type bracket struct {
 	xEnd, yEnd     int
 	yMiddle        int
 	below          bool
-	label          string
 	style          bracketStyle
 	fg, bg         termbox.Attribute
 }
@@ -81,6 +82,14 @@ func (l label) occupiesRect(x, y, width, height int) bool {
 
 func (l label) zIndex() int {
 	return 2
+}
+
+func (l label) selectable() bool {
+	return true
+}
+
+func (l label) Data() interface{} {
+	return l.data
 }
 
 func (b bracket) draw(offsetX, offsetY int, selected bool) {
@@ -136,6 +145,14 @@ func (b bracket) zIndex() int {
 	return 1
 }
 
+func (b bracket) selectable() bool {
+	return false
+}
+
+func (b bracket) Data() interface{} {
+	return nil
+}
+
 func newDisplay(tokenSpacing int) *display {
 	return &display{
 		tokenSpacing: tokenSpacing,
@@ -149,18 +166,24 @@ func (d *display) addDrawable(item drawable) {
 	d.drawables = append(d.drawables, &item)
 }
 
-func (d *display) drawablesInScreenRect(x, y, width, height int) (drwbls []*drawable) {
-	for _, drwbl := range d.drawables {
-		if (*drwbl).occupiesRect(x-d.offsetX-1, y-d.offsetY-1, width, height) {
-			drwbls = append(drwbls, drwbl)
+func (d *display) removeDrawable(item *drawable) {
+	index := -1
+	for i, drwbl := range d.drawables {
+		if drwbl == item {
+			index = i
+			break
 		}
 	}
-	log.Println(drwbls)
-	return drwbls
+	d.drawables = append(d.drawables[:index], d.drawables[index+1:]...)
 }
 
 func (d *display) selectAt(x, y int) {
-	drwbls := d.drawablesInScreenRect(x, y, 1, 1)
+	drwbls := []*drawable{}
+	for _, drwbl := range d.drawables {
+		if (*drwbl).selectable() && (*drwbl).occupiesRect(x-d.offsetX-1, y-d.offsetY-1, 1, 1) {
+			drwbls = append(drwbls, drwbl)
+		}
+	}
 	if len(drwbls) > 0 {
 		d.selectedDrawable = drwbls[0]
 	} else {
@@ -188,6 +211,7 @@ func (d *display) putSentence(sent sent.Sentence) {
 			text: tok.Text,
 			fg:   termbox.ColorDefault,
 			bg:   termbox.ColorDefault,
+			data: tok,
 		})
 		d.addDrawable(label{
 			x:    x + idOffset,
@@ -195,6 +219,7 @@ func (d *display) putSentence(sent sent.Sentence) {
 			text: tok.ID,
 			fg:   termbox.ColorDefault,
 			bg:   termbox.ColorDefault,
+			data: tok,
 		})
 
 		tokPos[i] = x + (totalLen-1)/2
@@ -237,7 +262,7 @@ yLoop:
 		break
 	}
 
-	d.addDrawable(bracket{
+	d.addDrawable(&bracket{
 		xStart:  xStart,
 		yStart:  yStart,
 		xEnd:    xEnd,
@@ -249,12 +274,13 @@ yLoop:
 		bg:      termbox.ColorDefault,
 	})
 	lLen := len([]rune(dep.Name))
-	d.addDrawable(label{
+	d.addDrawable(&label{
 		x:    (xStart + xEnd - lLen + 1) / 2,
 		y:    yMiddle,
 		text: dep.Name,
 		fg:   termbox.ColorDefault,
 		bg:   termbox.ColorDefault,
+		data: dep,
 	})
 }
 

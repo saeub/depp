@@ -19,7 +19,7 @@ var (
 
 func main() {
 	if len(os.Args) != 2 {
-		fmt.Printf("Usage: %v FILE\n", os.Args[0])
+		fmt.Printf("Usage: %s FILE\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -105,6 +105,14 @@ func handleKeyPress(key termbox.Key, ch rune) {
 					}
 					cmd = nil
 				})
+			case 'd':
+				if disp.selectedDrawable != nil {
+					dep, ok := (*disp.selectedDrawable).Data().(sent.Dependency)
+					if ok {
+						loadedSents[dispSentID].RemoveDependency(&dep)
+						disp.putSentence(loadedSents[dispSentID])
+					}
+				}
 			}
 		}
 	}
