@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"sort"
 
 	sent "./sent"
@@ -10,11 +11,12 @@ import (
 type display struct {
 	tokenSpacing     int
 	offsetX, offsetY int
-	drawables        []drawable
+	drawables        []*drawable
+	selectedDrawable *drawable
 }
 
 type drawable interface {
-	draw(offsetX, offsetY int)
+	draw(offsetX, offsetY int, selected bool)
 	occupiesRect(x, y, width, height int) bool
 	zIndex() int
 }
@@ -30,6 +32,7 @@ type bracket struct {
 	xEnd, yEnd     int
 	yMiddle        int
 	below          bool
+	label          string
 	style          bracketStyle
 	fg, bg         termbox.Attribute
 }
@@ -59,9 +62,15 @@ var (
 	}
 )
 
-func (l label) draw(offsetX, offsetY int) {
+func (l label) draw(offsetX, offsetY int, selected bool) {
+	fg := l.fg
+	bg := l.bg
+	if selected {
+		fg |= termbox.AttrBold
+		bg |= termbox.AttrReverse
+	}
 	for i, r := range []rune(l.text) {
-		termbox.SetCell(offsetX+l.x+i, offsetY+l.y, r, l.fg, l.bg)
+		termbox.SetCell(offsetX+l.x+i, offsetY+l.y, r, fg, bg)
 	}
 }
 
@@ -74,7 +83,7 @@ func (l label) zIndex() int {
 	return 2
 }
 
-func (b bracket) draw(offsetX, offsetY int) {
+func (b bracket) draw(offsetX, offsetY int, selected bool) {
 	var dirY int
 	if b.below {
 		dirY = 1
@@ -88,17 +97,24 @@ func (b bracket) draw(offsetX, offsetY int) {
 		dirX = -1
 	}
 
+	fg := b.fg
+	bg := b.bg
+	if selected {
+		fg |= termbox.AttrBold
+		bg |= termbox.AttrReverse
+	}
+
 	// draw legs
 	for y := b.yStart; y != b.yMiddle; y += dirY {
-		termbox.SetCell(offsetX+b.xStart, offsetY+y, b.style.legStart, termbox.ColorDefault, termbox.ColorDefault)
+		termbox.SetCell(offsetX+b.xStart, offsetY+y, b.style.legStart, fg, bg)
 	}
 	for y := b.yEnd; y != b.yMiddle; y += dirY {
-		termbox.SetCell(offsetX+b.xEnd, offsetY+y, b.style.legEnd, termbox.ColorDefault, termbox.ColorDefault)
+		termbox.SetCell(offsetX+b.xEnd, offsetY+y, b.style.legEnd, fg, bg)
 	}
 
 	// draw middle part
 	for x := b.xStart; x != b.xEnd; x += dirX {
-		termbox.SetCell(offsetX+x, offsetY+b.yMiddle, b.style.middle, termbox.ColorDefault, termbox.ColorDefault)
+		termbox.SetCell(offsetX+x, offsetY+b.yMiddle, b.style.middle, fg, bg)
 	}
 
 	// draw corners
@@ -108,8 +124,8 @@ func (b bracket) draw(offsetX, offsetY int) {
 	} else {
 		start = 1
 	}
-	termbox.SetCell(offsetX+b.xStart, offsetY+b.yMiddle, b.style.cornerStart[start], termbox.ColorDefault, termbox.ColorDefault)
-	termbox.SetCell(offsetX+b.xEnd, offsetY+b.yMiddle, b.style.cornerEnd[start^1], termbox.ColorDefault, termbox.ColorDefault)
+	termbox.SetCell(offsetX+b.xStart, offsetY+b.yMiddle, b.style.cornerStart[start], fg, bg)
+	termbox.SetCell(offsetX+b.xEnd, offsetY+b.yMiddle, b.style.cornerEnd[start^1], fg, bg)
 }
 
 func (b bracket) occupiesRect(x, y, width, height int) bool {
@@ -125,17 +141,36 @@ func newDisplay(tokenSpacing int) *display {
 		tokenSpacing: tokenSpacing,
 		offsetX:      0,
 		offsetY:      0,
-		drawables:    []drawable{},
+		drawables:    []*drawable{},
 	}
 }
 
 func (d *display) addDrawable(item drawable) {
-	d.drawables = append(d.drawables, item)
+	d.drawables = append(d.drawables, &item)
+}
+
+func (d *display) drawablesInScreenRect(x, y, width, height int) (drwbls []*drawable) {
+	for _, drwbl := range d.drawables {
+		if (*drwbl).occupiesRect(x-d.offsetX-1, y-d.offsetY-1, width, height) {
+			drwbls = append(drwbls, drwbl)
+		}
+	}
+	log.Println(drwbls)
+	return drwbls
+}
+
+func (d *display) selectAt(x, y int) {
+	drwbls := d.drawablesInScreenRect(x, y, 1, 1)
+	if len(drwbls) > 0 {
+		d.selectedDrawable = drwbls[0]
+	} else {
+		d.selectedDrawable = nil
+	}
 }
 
 func (d *display) putSentence(sent sent.Sentence) {
 	// clear drawables
-	d.drawables = []drawable{}
+	d.drawables = []*drawable{}
 
 	// draw tokens
 	toks := sent.Tokens()
@@ -192,7 +227,7 @@ func (d *display) putDependency(dep sent.Dependency, tokPos []int, yStart int, b
 yLoop:
 	for y := yStart; ; y += dirY {
 		for _, drwbl := range d.drawables {
-			if drwbl.occupiesRect(xStart, y, xEnd-xStart+1, 1) {
+			if (*drwbl).occupiesRect(xStart, y, xEnd-xStart+1, 1) {
 				// not a free spot
 				continue yLoop
 			}
@@ -218,14 +253,14 @@ yLoop:
 		x:    (xStart + xEnd - lLen + 1) / 2,
 		y:    yMiddle,
 		text: dep.Name,
-		fg:   termbox.ColorBlack,
-		bg:   termbox.ColorWhite,
+		fg:   termbox.ColorDefault,
+		bg:   termbox.ColorDefault,
 	})
 }
 
 func (d *display) sortDrawables() {
 	sort.Slice(d.drawables, func(i, j int) bool {
-		return d.drawables[i].zIndex() < d.drawables[j].zIndex()
+		return (*d.drawables[i]).zIndex() < (*d.drawables[j]).zIndex()
 	})
 }
 
@@ -241,9 +276,7 @@ func (d *display) resetScroll() {
 }
 
 func (d *display) render() {
-	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 	for _, drwbl := range d.drawables {
-		drwbl.draw(d.offsetX, d.offsetY)
+		(*drwbl).draw(d.offsetX, d.offsetY, drwbl == d.selectedDrawable)
 	}
-	termbox.Flush()
 }

@@ -1,50 +1,76 @@
 package main
 
 import (
-	"io/ioutil"
 	"log"
 	"regexp"
 
-	"github.com/jroimartin/gocui"
+	termbox "github.com/nsf/termbox-go"
 )
 
-func newCommand(g *gocui.Gui, cmdViewname, dispViewname, prompt, expression string, callback func([]string)) {
+type command struct {
+	prompt   string
+	regex    *regexp.Regexp
+	callback func(match []string)
+	input    []rune
+}
+
+type commandStatus int
+
+const (
+	cmdInputting commandStatus = iota
+	cmdEntered
+	cmdCancelled
+)
+
+func newCommand(prompt, expression string, callback func(match []string)) *command {
 	regex, err := regexp.Compile(expression)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
+		return nil
 	}
+	return &command{
+		prompt:   prompt,
+		regex:    regex,
+		callback: callback,
+		input:    []rune{},
+	}
+}
 
-	if err := g.SetKeybinding(cmdViewname, gocui.KeyEnter, gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error {
-			cmd, _ := ioutil.ReadAll(v)
-			match := regex.FindStringSubmatch(string(cmd))
-			if match == nil {
-				// TODO handle invalid command
-			} else {
-				v.Clear()
-				v.SetCursor(0, 0)
-				g.SetCurrentView(dispViewname)
-				g.SetViewOnBottom(cmdViewname)
-				callback(match)
+func (c *command) match() []string {
+	return c.regex.FindStringSubmatch(string(c.input))
+}
+
+func (c *command) handleKeyPress(key termbox.Key, ch rune) {
+	log.Println(key, ch)
+	if key != 0 {
+		switch key {
+		case termbox.KeyEnter:
+			c.callback(c.regex.FindStringSubmatch(string(c.input)))
+		case termbox.KeyEsc:
+			c.callback(nil)
+		case termbox.KeyBackspace, termbox.KeyBackspace2:
+			if len(c.input) > 0 {
+				c.input = c.input[:len(c.input)-1]
 			}
-			return nil
-		}); err != nil {
-		log.Panicln(err)
+		}
+	} else if ch != 0 {
+		c.input = append(c.input, ch)
 	}
-	if err := g.SetKeybinding(cmdViewname, gocui.KeyEsc, gocui.ModNone,
-		func(g *gocui.Gui, v *gocui.View) error {
-			v.Clear()
-			v.SetCursor(0, 0)
-			g.SetCurrentView(dispViewname)
-			g.SetViewOnBottom(cmdViewname)
-			callback(nil)
-			return nil
-		}); err != nil {
-		log.Panicln(err)
-	}
+}
 
-	v, _ := g.View(cmdViewname)
-	v.Title = prompt
-	g.SetCurrentView(cmdViewname)
-	g.SetViewOnTop(cmdViewname)
+func (c *command) render() {
+	log.Println("render")
+	tWidth, tHeight := termbox.Size()
+	y := tHeight - 1
+	prompt := []rune(c.prompt)
+	input := []rune(c.input)
+	for x := 0; x < tWidth; x++ {
+		if x < len(prompt) {
+			termbox.SetCell(x, y, prompt[x], termbox.ColorDefault, termbox.ColorDefault)
+		} else if x < len(prompt)+len(input) {
+			termbox.SetCell(x, y, input[x-len(prompt)], termbox.ColorDefault, termbox.ColorDefault)
+		} else {
+			termbox.SetCell(x, y, ' ', termbox.ColorDefault, termbox.ColorDefault)
+		}
+	}
 }

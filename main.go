@@ -14,7 +14,7 @@ var (
 	loadedSents []sent.Sentence
 	disp        *display
 	dispSentID  int
-	tokenSep    string
+	cmd         *command
 )
 
 func main() {
@@ -53,7 +53,12 @@ func mainloop() error {
 
 	var exitErr error
 	for exitErr == nil {
+		termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 		disp.render()
+		if cmd != nil {
+			cmd.render()
+		}
+		termbox.Flush()
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
 			if ev.Key == termbox.KeyCtrlC {
@@ -69,30 +74,46 @@ func mainloop() error {
 }
 
 func handleKeyPress(key termbox.Key, ch rune) {
-	if ch != 0 {
-		switch ch {
-		case 'h':
-			disp.scroll(-5, 0)
-		case 'j':
-			disp.scroll(0, 1)
-		case 'k':
-			disp.scroll(0, -1)
-		case 'l':
-			disp.scroll(5, 0)
-		case 'p':
-			navigateSentence(-1)
-		case 'n':
-			navigateSentence(1)
-		}
-	} else if key != 0 {
-		switch key {
+	if cmd != nil {
+		cmd.handleKeyPress(key, ch)
+	} else {
+		if key != 0 {
+			switch key {
 
+			}
+		} else if ch != 0 {
+			switch ch {
+			case 'h':
+				disp.scroll(-5, 0)
+			case 'j':
+				disp.scroll(0, 1)
+			case 'k':
+				disp.scroll(0, -1)
+			case 'l':
+				disp.scroll(5, 0)
+			case 'p':
+				navigateSentence(-1)
+			case 'n':
+				navigateSentence(1)
+			case 'a':
+				cmd = newCommand("add: ", `^([^\d\s]+)(\d+)(?:,(\d+))?$`, func(match []string) {
+					if match != nil {
+						loadedSents[dispSentID].AddDependency(match[1], match[2], match[3])
+						disp.putSentence(loadedSents[dispSentID])
+					} else {
+						// TODO handle invalid command
+					}
+					cmd = nil
+				})
+			}
 		}
 	}
 }
 
 func handleClick(key termbox.Key, x, y int) {
-
+	if key == termbox.MouseLeft {
+		disp.selectAt(x, y)
+	}
 }
 
 func navigateSentence(offset int) {
