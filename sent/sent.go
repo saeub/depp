@@ -27,14 +27,17 @@ type Sentence interface {
 	Output(io.Writer)
 }
 
-func SentencesFromFile(filename string, readFunc func(*bufio.Reader) Sentence) (sents []Sentence) {
-	f, _ := os.Open(filename)
+func SentencesFromFile(filename string, readFunc func(*bufio.Reader) Sentence) (sents []Sentence, err error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
 	defer f.Close()
 	r := bufio.NewReader(f)
 	for sent := readFunc(r); sent != nil; sent = readFunc(r) {
 		sents = append(sents, sent)
 	}
-	return sents
+	return sents, nil
 }
 
 func sortDependencies(deps []Dependency) {

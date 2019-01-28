@@ -5,15 +5,16 @@ import (
 	"log"
 	"os"
 
+	termbox "github.com/nsf/termbox-go"
+
 	sent "./sent"
-	"github.com/jroimartin/gocui"
 )
 
 var (
-	sents      []sent.Sentence
-	disp       *display
-	dispSentID int
-	tokenSep   string
+	loadedSents []sent.Sentence
+	disp        *display
+	dispSentID  int
+	tokenSep    string
 )
 
 func main() {
@@ -21,79 +22,77 @@ func main() {
 		fmt.Printf("Usage: %v FILE\n", os.Args[0])
 		os.Exit(1)
 	}
-	sents = sent.SentencesFromFile(os.Args[1], sent.ReadConllSentence)
-	tokenSep = "   "
 
-	g, err := gocui.NewGui(gocui.OutputNormal)
-	g.InputEsc = true
+	var err error
+	loadedSents, err = sent.SentencesFromFile(os.Args[1], sent.ReadConllSentence)
 	if err != nil {
-		log.Panicln(err)
-	}
-	defer g.Close()
-
-	g.SetManagerFunc(layout)
-
-	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		log.Panicln(err)
-	}
-	if err := g.SetKeybinding("display", 'n', gocui.ModNone, func(_ *gocui.Gui, _ *gocui.View) error {
-		navigateSentence(1)
-		return nil
-	}); err != nil {
-		log.Panicln(err)
-	}
-	if err := g.SetKeybinding("display", 'p', gocui.ModNone, func(_ *gocui.Gui, _ *gocui.View) error {
-		navigateSentence(-1)
-		return nil
-	}); err != nil {
-		log.Panicln(err)
+		log.Fatalln(err)
 	}
 
-	if err := g.SetKeybinding("display", 'a', gocui.ModNone, func(g *gocui.Gui, _ *gocui.View) error {
-		newCommand(g, "command", "display", "Add dependency", `([A-Za-z]+)(\d+)(?:,(\d+))?`, func(match []string) {
-			if match != nil {
-				// command not cancelled
-				sents[dispSentID].AddDependency(match[1], match[2], match[3])
-				disp.drawSentence(sents[dispSentID], false)
-			}
-		})
-		return nil
-	}); err != nil {
-		log.Panicln(err)
+	if len(loadedSents) == 0 {
+		log.Fatalln("no sentences or wrong format")
 	}
 
-	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-		log.Panicln(err)
+	err = mainloop()
+	if err != nil {
+		log.Fatalln(err)
 	}
 }
 
-func layout(g *gocui.Gui) error {
-	width, height := g.Size()
-
-	v, err := g.SetView("display", 0, 0, width-1, height-1)
+func mainloop() error {
+	err := termbox.Init()
 	if err != nil {
-		if err == gocui.ErrUnknownView {
-			disp = newDisplay(g, "display", tokenSep)
-			disp.drawSentence(sents[dispSentID], true)
-			g.SetCurrentView("display")
-		} else {
-			return err
+		panic(err)
+	}
+	defer termbox.Close()
+	termbox.SetInputMode(termbox.InputEsc | termbox.InputMouse)
+
+	disp = newDisplay(3)
+	disp.putSentence(loadedSents[0])
+	disp.resetScroll()
+
+	var exitErr error
+	for exitErr == nil {
+		disp.render()
+		switch ev := termbox.PollEvent(); ev.Type {
+		case termbox.EventKey:
+			if ev.Key == termbox.KeyCtrlC {
+				exitErr = fmt.Errorf("keyboard interrupt")
+			} else {
+				handleKeyPress(ev.Key, ev.Ch)
+			}
+		case termbox.EventMouse:
+			handleClick(ev.Key, ev.MouseX, ev.MouseY)
 		}
 	}
-	disp.layout(v)
+	return exitErr
+}
 
-	v, err = g.SetView("command", 0, height-3, width-1, height-1)
-	if err != nil {
-		if err == gocui.ErrUnknownView {
-			// v.Frame = false
-			// v.Editor = gocui.DefaultEditor
-			v.Editable = true
-			g.SetViewOnBottom("command")
-		} else {
-			return err
+func handleKeyPress(key termbox.Key, ch rune) {
+	if ch != 0 {
+		switch ch {
+		case 'h':
+			disp.scroll(-5, 0)
+		case 'j':
+			disp.scroll(0, 1)
+		case 'k':
+			disp.scroll(0, -1)
+		case 'l':
+			disp.scroll(5, 0)
+		case 'p':
+			navigateSentence(-1)
+		case 'n':
+			navigateSentence(1)
+		}
+	} else if key != 0 {
+		switch key {
+
 		}
 	}
-	return nil
+}
+
+func handleClick(key termbox.Key, x, y int) {
+
 }
 
 func navigateSentence(offset int) {
@@ -101,12 +100,9 @@ func navigateSentence(offset int) {
 	if dispSentID < 0 {
 		dispSentID = 0
 	}
-	if dispSentID >= len(sents) {
-		dispSentID = len(sents) - 1
+	if dispSentID >= len(loadedSents) {
+		dispSentID = len(loadedSents) - 1
 	}
-	disp.drawSentence(sents[dispSentID], true)
-}
-
-func quit(g *gocui.Gui, v *gocui.View) error {
-	return gocui.ErrQuit
+	disp.putSentence(loadedSents[dispSentID])
+	disp.resetScroll()
 }

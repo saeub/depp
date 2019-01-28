@@ -31,10 +31,6 @@ func limit(value, min, max int) int {
 	return value
 }
 
-func longestLen(lines []string) int {
-	maxlen := 0
-	for _, l := range lines {
-		maxlen = max(maxlen, len([]rune(l)))
-	}
-	return maxlen
+func overlap(a1, a2, b1, b2 int) bool {
+	return min(a1, a2) <= max(b1, b2) && min(b1, b2) <= max(a1, a2)
 }
