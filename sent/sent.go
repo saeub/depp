@@ -21,24 +21,32 @@ type Dependency struct {
 
 type Sentence interface {
 	Tokens() []Token
-	DependenciesAbove() []Dependency
-	DependenciesBelow() []Dependency
+	PrimaryDependencies() []Dependency
+	SecondaryDependencies() []Dependency
 	AddDependency(name, headID, depID string) error
 	RemoveDependency(dep *Dependency) error
 	Output(io.Writer)
 }
 
-func SentencesFromFile(filename string, readFunc func(*bufio.Reader) Sentence) (sents []Sentence, err error) {
+func SentencesFromFile(filename string, readFunc func(*bufio.Reader) (Sentence, error)) (sents []Sentence, err error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 	r := bufio.NewReader(f)
-	for sent := readFunc(r); sent != nil; sent = readFunc(r) {
-		sents = append(sents, sent)
+	for {
+		sent, err := readFunc(r)
+		if sent != nil {
+			sents = append(sents, sent)
+		} else if err != nil {
+			// error while parsing sentence
+			return sents, err
+		} else {
+			// end of file
+			return sents, nil
+		}
 	}
-	return sents, nil
 }
 
 func sortDependencies(deps []Dependency) {

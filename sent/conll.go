@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -13,7 +12,7 @@ type conllSentence struct {
 	rows [][]string
 }
 
-func ReadConllSentence(reader *bufio.Reader) Sentence {
+func ReadConllSentence(reader *bufio.Reader) (Sentence, error) {
 	rows := make([][]string, 0)
 	for true {
 		line, err := reader.ReadString('\n')
@@ -32,15 +31,15 @@ func ReadConllSentence(reader *bufio.Reader) Sentence {
 		}
 		row := strings.Split(line, "\t")
 		if len(row) < 10 {
-			log.Panicln("invalid line:", line)
+			return nil, fmt.Errorf("invalid line: %s", line)
 		}
 		rows = append(rows, row)
 	}
 	if len(rows) == 0 {
 		// end of file, no more sentences to return
-		return nil
+		return nil, nil
 	}
-	return &conllSentence{rows}
+	return &conllSentence{rows}, nil
 }
 
 func (sent *conllSentence) Tokens() []Token {
@@ -52,11 +51,7 @@ func (sent *conllSentence) Tokens() []Token {
 	return toks
 }
 
-func (sent *conllSentence) DependenciesAbove() []Dependency {
-	return nil
-}
-
-func (sent *conllSentence) DependenciesBelow() []Dependency {
+func (sent *conllSentence) PrimaryDependencies() []Dependency {
 	deps := make([]Dependency, len(sent.rows))
 	for i, f := range sent.rows {
 		headID, _ := strconv.Atoi(f[6])
@@ -76,6 +71,10 @@ func (sent *conllSentence) DependenciesBelow() []Dependency {
 	// display shorter dependencies closer to the sentence
 	sortDependencies(deps)
 	return deps
+}
+
+func (sent *conllSentence) SecondaryDependencies() []Dependency {
+	return nil
 }
 
 func (sent *conllSentence) AddDependency(name, headID, depID string) error {

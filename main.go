@@ -26,7 +26,7 @@ func main() {
 	var err error
 	loadedSents, err = sent.SentencesFromFile(os.Args[1], sent.ReadConllSentence)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	if len(loadedSents) == 0 {
@@ -96,21 +96,33 @@ func handleKeyPress(key termbox.Key, ch rune) {
 			case 'n':
 				navigateSentence(1)
 			case 'a':
-				cmd = newCommand("add: ", `^([^\d\s]+)(\d+)(?:,(\d+))?$`, func(match []string) {
+				var err error
+				cmd, err = newCommand("add: ", `^([^\d\s]+)(\d+)(?:,(\d+))?$`, func(input string, match []string) {
 					if match != nil {
-						loadedSents[dispSentID].AddDependency(match[1], match[2], match[3])
-						disp.putSentence(loadedSents[dispSentID])
+						err := loadedSents[dispSentID].AddDependency(match[1], match[2], match[3])
+						if err != nil {
+							log.Println(err)
+						} else {
+							disp.putSentence(loadedSents[dispSentID])
+						}
 					} else {
-						// TODO handle invalid command
+						log.Printf("invalid command %s\n", input)
 					}
 					cmd = nil
 				})
+				if err != nil {
+					log.Println(err)
+				}
 			case 'd':
 				if disp.selectedDrawable != nil {
 					dep, ok := (*disp.selectedDrawable).Data().(sent.Dependency)
 					if ok {
-						loadedSents[dispSentID].RemoveDependency(&dep)
-						disp.putSentence(loadedSents[dispSentID])
+						err := loadedSents[dispSentID].RemoveDependency(&dep)
+						if err != nil {
+							log.Println(err)
+						} else {
+							disp.putSentence(loadedSents[dispSentID])
+						}
 					}
 				}
 			}

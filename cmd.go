@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"regexp"
 
 	termbox "github.com/nsf/termbox-go"
@@ -10,7 +9,7 @@ import (
 type command struct {
 	prompt   string
 	regex    *regexp.Regexp
-	callback func(match []string)
+	callback func(input string, match []string)
 	input    []rune
 }
 
@@ -22,18 +21,17 @@ const (
 	cmdCancelled
 )
 
-func newCommand(prompt, expression string, callback func(match []string)) *command {
+func newCommand(prompt, expression string, callback func(input string, match []string)) (*command, error) {
 	regex, err := regexp.Compile(expression)
 	if err != nil {
-		log.Println(err)
-		return nil
+		return nil, err
 	}
 	return &command{
 		prompt:   prompt,
 		regex:    regex,
 		callback: callback,
 		input:    []rune{},
-	}
+	}, nil
 }
 
 func (c *command) match() []string {
@@ -41,13 +39,13 @@ func (c *command) match() []string {
 }
 
 func (c *command) handleKeyPress(key termbox.Key, ch rune) {
-	log.Println(key, ch)
 	if key != 0 {
 		switch key {
 		case termbox.KeyEnter:
-			c.callback(c.regex.FindStringSubmatch(string(c.input)))
+			inputStr := string(c.input)
+			c.callback(inputStr, c.regex.FindStringSubmatch(inputStr))
 		case termbox.KeyEsc:
-			c.callback(nil)
+			c.callback(string(c.input), nil)
 		case termbox.KeyBackspace, termbox.KeyBackspace2:
 			if len(c.input) > 0 {
 				c.input = c.input[:len(c.input)-1]
@@ -59,7 +57,6 @@ func (c *command) handleKeyPress(key termbox.Key, ch rune) {
 }
 
 func (c *command) render() {
-	log.Println("render")
 	tWidth, tHeight := termbox.Size()
 	y := tHeight - 1
 	prompt := []rune(c.prompt)

@@ -227,11 +227,11 @@ func (d *display) putSentence(sent sent.Sentence) {
 	}
 
 	// draw dependencies
-	for _, dep := range sent.DependenciesAbove() {
-		disp.putDependency(dep, tokPos, -2, false)
-	}
-	for _, dep := range sent.DependenciesBelow() {
+	for _, dep := range sent.PrimaryDependencies() {
 		disp.putDependency(dep, tokPos, 1, true)
+	}
+	for _, dep := range sent.SecondaryDependencies() {
+		disp.putDependency(dep, tokPos, -2, false)
 	}
 
 	d.sortDrawables()
