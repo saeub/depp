@@ -13,7 +13,7 @@ import (
 
 type proconSentence struct {
 	conll  *conllSentence
-	procon []Dependency
+	procon []*Dependency
 }
 
 func ReadProconSentence(reader *bufio.Reader) (Sentence, error) {
@@ -26,7 +26,7 @@ func ReadProconSentence(reader *bufio.Reader) (Sentence, error) {
 		// end of file, no more sentences to return
 		return nil, nil
 	}
-	procon := []Dependency{}
+	procon := []*Dependency{}
 	if err != nil {
 		// non-CoNLL line
 		line := err.Error()
@@ -37,14 +37,14 @@ func ReadProconSentence(reader *bufio.Reader) (Sentence, error) {
 			if len(rel) > 0 {
 				headID, _ := strconv.Atoi(rel[2])
 				dependentID, _ := strconv.Atoi(rel[3])
-				procon = append(procon, Dependency{
+				procon = append(procon, &Dependency{
 					Name:           rel[1],
 					HeadIndex:      headID - 1,
 					DependentIndex: dependentID - 1,
 				})
 			} else if len(eff) > 0 {
 				headID, _ := strconv.Atoi(eff[2])
-				procon = append(procon, Dependency{
+				procon = append(procon, &Dependency{
 					Name:           eff[1],
 					HeadIndex:      headID - 1,
 					DependentIndex: headID - 1,
@@ -65,15 +65,15 @@ func ReadProconSentence(reader *bufio.Reader) (Sentence, error) {
 	return &proconSentence{conll, procon}, nil
 }
 
-func (sent *proconSentence) Tokens() []Token {
+func (sent *proconSentence) Tokens() []*Token {
 	return sent.conll.Tokens()
 }
 
-func (sent *proconSentence) PrimaryDependencies() []Dependency {
+func (sent *proconSentence) PrimaryDependencies() []*Dependency {
 	return sent.procon
 }
 
-func (sent *proconSentence) SecondaryDependencies() []Dependency {
+func (sent *proconSentence) SecondaryDependencies() []*Dependency {
 	return sent.conll.PrimaryDependencies()
 }
 
@@ -82,14 +82,14 @@ func (sent *proconSentence) AddDependency(name, headID, depID string) error {
 	case "p", "c":
 		headID, _ := strconv.Atoi(headID)
 		dependentID, _ := strconv.Atoi(depID)
-		sent.procon = append(sent.procon, Dependency{
+		sent.procon = append(sent.procon, &Dependency{
 			Name:           name,
 			HeadIndex:      headID - 1,
 			DependentIndex: dependentID - 1,
 		})
 	case "peff", "neff", "pac", "nac":
 		headID, _ := strconv.Atoi(headID)
-		sent.procon = append(sent.procon, Dependency{
+		sent.procon = append(sent.procon, &Dependency{
 			Name:           name,
 			HeadIndex:      headID - 1,
 			DependentIndex: headID - 1,
@@ -100,13 +100,21 @@ func (sent *proconSentence) AddDependency(name, headID, depID string) error {
 
 func (sent *proconSentence) RemoveDependency(dep *Dependency) error {
 	for i, d := range sent.procon {
-		if &d == dep {
+		if d == dep {
 			sent.procon = append(sent.procon[:i], sent.procon[i+1:]...)
+			log.Println("del")
 		}
 	}
 	return nil
 }
 
 func (sent *proconSentence) Output(writer io.Writer) {
-	fmt.Fprint(writer, "not inplemented")
+	sent.conll.Output(writer)
+	for _, dep := range sent.procon {
+		if dep.DependentIndex < 0 {
+			fmt.Fprintf(writer, "%s%d", dep.Name, dep.HeadIndex)
+		} else {
+			fmt.Fprintf(writer, "%s%d,%d", dep.Name, dep.HeadIndex, dep.DependentIndex)
+		}
+	}
 }

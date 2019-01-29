@@ -20,9 +20,9 @@ type Dependency struct {
 }
 
 type Sentence interface {
-	Tokens() []Token
-	PrimaryDependencies() []Dependency
-	SecondaryDependencies() []Dependency
+	Tokens() []*Token
+	PrimaryDependencies() []*Dependency
+	SecondaryDependencies() []*Dependency
 	AddDependency(name, headID, depID string) error
 	RemoveDependency(dep *Dependency) error
 	Output(io.Writer)
@@ -49,7 +49,7 @@ func SentencesFromFile(filename string, readFunc func(*bufio.Reader) (Sentence, 
 	}
 }
 
-func sortDependencies(deps []Dependency) {
+func sortDependencies(deps []*Dependency) {
 	sort.Slice(deps, func(i, j int) bool {
 		dist1 := deps[i].DependentIndex - deps[i].HeadIndex
 		if dist1 < 0 {

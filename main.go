@@ -115,9 +115,9 @@ func handleKeyPress(key termbox.Key, ch rune) {
 				}
 			case 'd':
 				if disp.selectedDrawable != nil {
-					dep, ok := (*disp.selectedDrawable).Data().(sent.Dependency)
+					dep, ok := (*disp.selectedDrawable).Data().(*sent.Dependency)
 					if ok {
-						err := loadedSents[dispSentID].RemoveDependency(&dep)
+						err := loadedSents[dispSentID].RemoveDependency(dep)
 						if err != nil {
 							log.Println(err)
 						} else {

@@ -44,17 +44,17 @@ func ReadConllSentence(reader *bufio.Reader) (Sentence, error) {
 	return &conllSentence{rows}, nil
 }
 
-func (sent *conllSentence) Tokens() []Token {
-	toks := make([]Token, len(sent.rows))
+func (sent *conllSentence) Tokens() []*Token {
+	toks := make([]*Token, len(sent.rows))
 	// TODO check for inconsistent IDs?
 	for i, f := range sent.rows {
-		toks[i] = Token{f[0], f[1], f[2]}
+		toks[i] = &Token{f[0], f[1], f[2]}
 	}
 	return toks
 }
 
-func (sent *conllSentence) PrimaryDependencies() []Dependency {
-	deps := make([]Dependency, len(sent.rows))
+func (sent *conllSentence) PrimaryDependencies() []*Dependency {
+	deps := make([]*Dependency, len(sent.rows))
 	for i, f := range sent.rows {
 		headID, _ := strconv.Atoi(f[6])
 		headIndex := headID - 1 // convert CoNLL ID to slice index
@@ -68,14 +68,14 @@ func (sent *conllSentence) PrimaryDependencies() []Dependency {
 			// invalid ID; set current token as dependent
 			dependentIndex = i
 		}
-		deps[i] = Dependency{f[7], headIndex, dependentIndex}
+		deps[i] = &Dependency{f[7], headIndex, dependentIndex}
 	}
 	// display shorter dependencies closer to the sentence
 	sortDependencies(deps)
 	return deps
 }
 
-func (sent *conllSentence) SecondaryDependencies() []Dependency {
+func (sent *conllSentence) SecondaryDependencies() []*Dependency {
 	return nil
 }
 

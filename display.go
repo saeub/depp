@@ -238,7 +238,7 @@ func (d *display) putSentence(sent sent.Sentence) {
 }
 
 // TODO less redundancy
-func (d *display) putDependency(dep sent.Dependency, tokPos []int, yStart int, below bool) {
+func (d *display) putDependency(dep *sent.Dependency, tokPos []int, yStart int, below bool) {
 	xStart := tokPos[dep.HeadIndex]
 	xEnd := tokPos[dep.DependentIndex]
 	yMiddle := 0
