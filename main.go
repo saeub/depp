@@ -24,7 +24,7 @@ func main() {
 	}
 
 	var err error
-	loadedSents, err = sent.SentencesFromFile(os.Args[1], sent.ReadConllSentence)
+	loadedSents, err = sent.SentencesFromFile(os.Args[1], sent.ReadProconSentence)
 	if err != nil {
 		log.Println(err)
 	}

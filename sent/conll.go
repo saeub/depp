@@ -2,6 +2,7 @@ package sent
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -31,7 +32,8 @@ func ReadConllSentence(reader *bufio.Reader) (Sentence, error) {
 		}
 		row := strings.Split(line, "\t")
 		if len(row) < 10 {
-			return nil, fmt.Errorf("invalid line: %s", line)
+			// invalid line
+			return &conllSentence{rows}, errors.New(line)
 		}
 		rows = append(rows, row)
 	}

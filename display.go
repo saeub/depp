@@ -243,10 +243,13 @@ func (d *display) putDependency(dep sent.Dependency, tokPos []int, yStart int, b
 	xEnd := tokPos[dep.DependentIndex]
 	yMiddle := 0
 	var dirY int
+	var style bracketStyle
 	if below {
 		dirY = 1
+		style = bracketBelow
 	} else {
 		dirY = -1
+		style = bracketAbove
 	}
 
 yLoop:
@@ -269,7 +272,7 @@ yLoop:
 		yEnd:    yStart,
 		yMiddle: yMiddle,
 		below:   below,
-		style:   bracketBelow,
+		style:   style,
 		fg:      termbox.ColorDefault,
 		bg:      termbox.ColorDefault,
 	})
