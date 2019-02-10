@@ -125,6 +125,24 @@ func handleKeyPress(key termbox.Key, ch rune) {
 						}
 					}
 				}
+			case 'w':
+				var err error
+				cmd, err = newCommand("write to file: ", `^.+$`, func(input string, match []string) {
+					if match != nil {
+						outfile, err := os.Create(match[0])
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						for _, sent := range loadedSents {
+							sent.Output(outfile)
+						}
+					}
+					cmd = nil
+				})
+				if err != nil {
+					log.Println(err)
+				}
 			}
 		}
 	}
