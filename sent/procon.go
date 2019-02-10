@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -30,7 +29,6 @@ func ReadProconSentence(reader *bufio.Reader) (Sentence, error) {
 	if err != nil {
 		// non-CoNLL line
 		line := err.Error()
-		log.Println(line)
 		for len(line) != 0 {
 			rel := relRegex.FindStringSubmatch(line)
 			eff := effRegex.FindStringSubmatch(line)
@@ -55,7 +53,6 @@ func ReadProconSentence(reader *bufio.Reader) (Sentence, error) {
 			}
 			l, err := reader.ReadString('\n')
 			line = strings.TrimSpace(l)
-			log.Println(line, err)
 			if err != nil {
 				// end of file
 				break
@@ -80,41 +77,63 @@ func (sent *proconSentence) SecondaryDependencies() []*Dependency {
 func (sent *proconSentence) AddDependency(name, headID, depID string) error {
 	switch name {
 	case "p", "c":
-		headID, _ := strconv.Atoi(headID)
-		dependentID, _ := strconv.Atoi(depID)
+		headConllID, err := strconv.Atoi(headID)
+		if err != nil {
+			return err
+		}
+		depConllID, err := strconv.Atoi(depID)
+		if err != nil {
+			return err
+		}
+		headIndex := conllIDToIndex(headConllID)
+		if headIndex < 0 || headIndex >= len(sent.conll.rows) {
+			return fmt.Errorf("proconSentence.AddDependency: invalid token ID %s", headID)
+		}
+		depIndex := conllIDToIndex(depConllID)
+		if depIndex < 0 || depIndex >= len(sent.conll.rows) {
+			return fmt.Errorf("proconSentence.AddDependency: invalid token ID %s", depID)
+		}
 		sent.procon = append(sent.procon, &Dependency{
 			Name:           name,
-			HeadIndex:      headID - 1,
-			DependentIndex: dependentID - 1,
+			HeadIndex:      headIndex,
+			DependentIndex: depIndex,
 		})
 	case "peff", "neff", "pac", "nac":
-		headID, _ := strconv.Atoi(headID)
+		headConllID, err := strconv.Atoi(headID)
+		if err != nil {
+			return err
+		}
+		headIndex := conllIDToIndex(headConllID)
+		if headIndex < 0 || headIndex >= len(sent.conll.rows) {
+			return fmt.Errorf("proconSentence.AddDependency: invalid token ID %s", headID)
+		}
 		sent.procon = append(sent.procon, &Dependency{
 			Name:           name,
-			HeadIndex:      headID - 1,
-			DependentIndex: headID - 1,
+			HeadIndex:      headIndex,
+			DependentIndex: headIndex,
 		})
 	}
 	return nil
 }
 
 func (sent *proconSentence) RemoveDependency(dep *Dependency) error {
+	// TODO check for inexisting dependency?
 	for i, d := range sent.procon {
 		if d == dep {
 			sent.procon = append(sent.procon[:i], sent.procon[i+1:]...)
-			log.Println("del")
 		}
 	}
 	return nil
 }
 
 func (sent *proconSentence) Output(writer io.Writer) {
-	sent.conll.Output(writer)
+	sent.conll.outputConll(writer)
 	for _, dep := range sent.procon {
-		if dep.DependentIndex < 0 {
-			fmt.Fprintf(writer, "%s%d", dep.Name, dep.HeadIndex)
+		if dep.HeadIndex == dep.DependentIndex {
+			fmt.Fprintf(writer, "%s%d\n", dep.Name, indexToConllID(dep.HeadIndex))
 		} else {
-			fmt.Fprintf(writer, "%s%d,%d", dep.Name, dep.HeadIndex, dep.DependentIndex)
+			fmt.Fprintf(writer, "%s%d,%d\n", dep.Name, indexToConllID(dep.HeadIndex), indexToConllID(dep.DependentIndex))
 		}
 	}
+	fmt.Fprintln(writer)
 }

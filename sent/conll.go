@@ -13,6 +13,14 @@ type conllSentence struct {
 	rows [][]string
 }
 
+func indexToConllID(index int) int {
+	return index + 1
+}
+
+func conllIDToIndex(id int) int {
+	return id - 1
+}
+
 func ReadConllSentence(reader *bufio.Reader) (Sentence, error) {
 	rows := make([][]string, 0)
 	for true {
@@ -57,13 +65,13 @@ func (sent *conllSentence) PrimaryDependencies() []*Dependency {
 	deps := make([]*Dependency, len(sent.rows))
 	for i, f := range sent.rows {
 		headID, _ := strconv.Atoi(f[6])
-		headIndex := headID - 1 // convert CoNLL ID to slice index
+		headIndex := conllIDToIndex(headID)
 		if headIndex < 0 || headIndex >= len(sent.rows) {
 			// invalid ID; set current token as head
 			headIndex = i
 		}
 		dependentID, _ := strconv.Atoi(f[0])
-		dependentIndex := dependentID - 1 // convert CoNLL ID to slice index
+		dependentIndex := conllIDToIndex(dependentID)
 		if dependentIndex < 0 || dependentIndex > len(sent.rows) {
 			// invalid ID; set current token as dependent
 			dependentIndex = i
@@ -80,36 +88,40 @@ func (sent *conllSentence) SecondaryDependencies() []*Dependency {
 }
 
 func (sent *conllSentence) AddDependency(name, headID, depID string) error {
-	// TODO check for invalid head ID
+	var depConllID int
 	if depID == "" {
 		// root dependency
-		depID = headID
+		var err error
+		depConllID, err = strconv.Atoi(headID)
+		if err != nil {
+			return err
+		}
 		headID = "0"
 	}
-	for _, r := range sent.rows {
-		if r[0] == depID {
-			r[7] = name
-			r[6] = headID
-			return nil
-		}
+	depIndex := conllIDToIndex(depConllID)
+	if depIndex < 0 || depIndex >= len(sent.rows) {
+		return fmt.Errorf("conllSentence.AddDependency: invalid token ID %s", depID)
 	}
-	return fmt.Errorf("no token with ID %s", depID)
+	sent.rows[depIndex][7] = name
+	// TODO check for invalid head ID?
+	sent.rows[depIndex][6] = headID
+	return nil
 }
 
 func (sent *conllSentence) RemoveDependency(dep *Dependency) error {
-	depID := strconv.Itoa(dep.DependentIndex + 1)
-	for _, r := range sent.rows {
-		if r[0] == depID {
-			r[7] = ""
-			r[6] = "0"
-			return nil
-		}
+	// TODO check for inexisting dependency?
+	sent.rows[dep.DependentIndex][7] = ""
+	sent.rows[dep.DependentIndex][6] = "0"
+	return nil
+}
+
+func (sent *conllSentence) outputConll(writer io.Writer) {
+	for _, f := range sent.rows {
+		fmt.Fprintln(writer, strings.Join(f, "\t"))
 	}
-	return fmt.Errorf("no token with ID %s", depID)
 }
 
 func (sent *conllSentence) Output(writer io.Writer) {
-	for _, f := range sent.rows {
-		fmt.Fprint(writer, strings.Join(f, "\t"))
-	}
+	sent.outputConll(writer)
+	fmt.Fprintln(writer)
 }
